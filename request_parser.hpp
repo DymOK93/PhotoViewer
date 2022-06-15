@@ -21,7 +21,7 @@ class RequestParser final : public io::IListener {
  public:
   void Process(std::byte value) override {
     if (auto& header = m_current_block; !header) {
-      header = deserialize<io::BlockHeader>(value).value();
+      header = deserialize<io::BlockHeader>(value);
     } else {
       dispatch(value);
       if (--header->size == 0) {

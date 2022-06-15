@@ -483,7 +483,7 @@ void Card::get_from_fifo(byte* buffer,
 
 TransferStatus Card::translate_block_io_status(
     uint32_t native_status) noexcept {
-  TransferStatus status;
+  auto status{TransferStatus::Success};
   if (READ_BIT(native_status, SDIO_STA_DTIMEOUT)) {
     status = TransferStatus::Timeout;
   } else if (READ_BIT(native_status, SDIO_STA_DCRCFAIL)) {

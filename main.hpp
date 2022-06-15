@@ -3,6 +3,7 @@
 #include "display.hpp"
 #include "file.hpp"
 #include "lcd.hpp"
+#include "receiver.hpp"
 
 #include <cstdio>
 #include <functional>
@@ -79,5 +80,18 @@ class DisplayGuard {
   Display& m_display;
   bool m_active{false};
   State m_state{};
+};
+
+class ListenerGuard {
+ public:
+  ListenerGuard(io::IListener& listener, io::Receiver& receiver) noexcept;
+  ListenerGuard(const ListenerGuard&) = delete;
+  ListenerGuard(ListenerGuard&&) = delete;
+  ListenerGuard& operator=(const ListenerGuard&) = delete;
+  ListenerGuard& operator=(ListenerGuard&&) = delete;
+  ~ListenerGuard() noexcept;
+
+ private:
+  io::Receiver& m_receiver;
 };
 }  // namespace pv

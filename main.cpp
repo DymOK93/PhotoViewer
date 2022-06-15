@@ -35,17 +35,25 @@ int main() {
 namespace pv {
 int EventLoop(fs::CyclicDirectoryIterator dir_it) noexcept {
   pv::RequestParser<pv::COMMAND_QUEUE_SIZE, pv::PIXEL_QUEUE_SIZE> parser;
-  io::Receiver::GetInstance().Listen(addressof(parser));
+  ListenerGuard listener_guard{parser, io::Receiver::GetInstance()};
+
   auto& cmd_queue{parser.GetCommands()};
   auto& pixel_queue{parser.GetData()};
 
   auto& transmitter{io::Transmitter::GetInstance()};
   auto& command_manager{cmd::CommandManager::GetInstance()};
+  const auto command_flusher{[&command_manager, &transmitter]() {
+    command_manager.Flush(transmitter);
+  }};
 
   DisplayGuard display{pv::Display::GetInstance()};
   optional<Image> image;
 
+  display.Activate();
+
   for (;;) {
+    command_flusher();
+
     bool cmd_success{true};
     for (size_t idx = 0; idx < COMMAND_TIMESLICE && !empty(cmd_queue); ++idx) {
       const auto command{cmd_queue.consume()};
@@ -59,14 +67,13 @@ int EventLoop(fs::CyclicDirectoryIterator dir_it) noexcept {
           cmd_success = false;
         }
       });
+      command_flusher();
     }
     if (!cmd_success) {
       return EXIT_FAILURE;
     }
 
-    if (display.IsFilled()) {
-      display.Activate();
-    } else {
+    if (!display.IsFilled()) {
       for (size_t idx = 0;
            idx < PIXEL_TIMESLICE && size(pixel_queue) >= sizeof(bmp::Rgb666) &&
            display.NotifyFillPixel();
@@ -78,9 +85,10 @@ int EventLoop(fs::CyclicDirectoryIterator dir_it) noexcept {
       }
     }
 
-    if (!display.IsAllRowsRead() && image.has_value() &&
+    if (image.has_value() &&
         transmitter.GetRemainingQueueSize<bmp::Rgb666>() >=
-            lcd::Panel::PIXEL_HORIZONTAL) {
+            lcd::Panel::PIXEL_HORIZONTAL &&
+        display.NotifyReadRow()) {
       bmp::Bgr888 row[lcd::Panel::PIXEL_HORIZONTAL];
       const auto bytes_read{
           image->file.Read(reinterpret_cast<byte*>(row), sizeof row)};
@@ -92,6 +100,7 @@ int EventLoop(fs::CyclicDirectoryIterator dir_it) noexcept {
         const bmp::Bgr888 pixel{row[lcd::Panel::PIXEL_HORIZONTAL - idx - 1]};
         transmitter.SendData(reinterpret_cast<const byte*>(addressof(pixel)),
                              sizeof(bmp::Bgr888));
+        command_flusher();
       }
     }
   }
@@ -163,5 +172,15 @@ bool DisplayGuard::NotifyReadRow() noexcept {
   }
   ++m_state.rows_read;
   return true;
+}
+
+ListenerGuard::ListenerGuard(io::IListener& listener,
+                             io::Receiver& receiver) noexcept
+    : m_receiver{receiver} {
+  receiver.Listen(addressof(listener));
+}
+
+ListenerGuard::~ListenerGuard() noexcept {
+  m_receiver.Listen(nullptr);
 }
 }  // namespace pv
