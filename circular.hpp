@@ -15,13 +15,13 @@ class CircularQueue {
  public:
   void push(Ty value) noexcept {
     m_buffer[shift_index(m_tail)] = std::move(value);
-    ++m_size;
+    m_size = m_size + 1;
   }
 
   Ty pop() noexcept {
     assert(!empty());
     auto value{std::move(m_buffer[shift_index(m_head)])};
-    --m_size;
+    m_size = m_size - 1;
     return value;
   }
 
@@ -54,7 +54,7 @@ class CircularBuffer : CircularQueue<Capacity, Ty> {
       return false;
     }
     produce_impl(first, count);
-    this->m_size += count;
+    this->m_size = this->m_size + count;
     return true;
   }
 
@@ -68,7 +68,7 @@ class CircularBuffer : CircularQueue<Capacity, Ty> {
       return false;
     }
     consume_impl(count, handler);
-    this->m_size -= count;
+    this->m_size = this->m_size - count;
     return true;
   }
 
@@ -86,31 +86,30 @@ class CircularBuffer : CircularQueue<Capacity, Ty> {
   template <class InputIt>
   void produce_impl(InputIt first, std::size_t count) noexcept {
     if (const std::size_t head = this->m_head, tail = this->m_tail;
-        tail <= head || Capacity - tail > count) {
+        tail < head || Capacity - tail > count) {
       std::move(first, std::next(first, count), this->m_buffer + tail);
-      this->m_tail += count;
+      this->m_tail = this->m_tail + count;
     } else {
       const std::size_t remaining{Capacity - tail};
       const auto middle{std::next(first, remaining)};
       std::move(first, middle, this->m_buffer + tail);
       count -= remaining;
       std::move(middle, std::next(middle, count), this->m_buffer);
-      this->m_head = count;
+      this->m_tail = count;
     }
   }
 
   template <class TransferHandler>
   void consume_impl(std::size_t count, TransferHandler handler) noexcept {
     if (const std::size_t head = this->m_head, tail = this->m_tail;
-        tail > head || Capacity - head > count) {
+        head < tail || Capacity - head > count) {
       Ty* middle{this->m_buffer + head};
       handler(middle, middle + count);
-      this->m_head += count;
+      this->m_head = this->m_head + count;
     } else {
       const std::size_t remaining{Capacity - head};
       Ty* middle{this->m_buffer + head};
-      handler(middle + head, middle + remaining);
-
+      handler(middle, middle + remaining);
       count -= remaining;
       handler(this->m_buffer, this->m_buffer + count);
       this->m_head = count;
