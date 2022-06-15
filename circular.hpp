@@ -60,14 +60,23 @@ class CircularBuffer : CircularQueue<Capacity, Ty> {
 
   Ty consume() noexcept { return MyBase::pop(); }
 
-  template <class OutputIt>
-  bool consume(OutputIt first, std::size_t count) noexcept {
+  template <
+      class TransferHandler,
+      std::enable_if_t<std::is_invocable_v<TransferHandler, Ty*, Ty*>, int> = 0>
+  bool consume(std::size_t count, TransferHandler handler) noexcept {
     if (!count || this->m_size < count) {
       return false;
     }
-    consume_impl(first, count);
+    consume_impl(count, handler);
     this->m_size -= count;
     return true;
+  }
+
+  template <class OutputIt>
+  bool consume(OutputIt out, std::size_t count) noexcept {
+    return consume(count, [&out](Ty* first, Ty* last) {
+      out = std::move(first, last, out);
+    });
   }
 
   using MyBase::empty;
@@ -90,20 +99,20 @@ class CircularBuffer : CircularQueue<Capacity, Ty> {
     }
   }
 
-  template <class OutputIt>
-  void consume_impl(OutputIt first, std::size_t count) noexcept {
+  template <class TransferHandler>
+  void consume_impl(std::size_t count, TransferHandler handler) noexcept {
     if (const std::size_t head = this->m_head, tail = this->m_tail;
         tail > head || Capacity - head > count) {
-      const Ty* middle{this->m_buffer + head};
-      std::move(middle, middle + count, first);
+      Ty* middle{this->m_buffer + head};
+      handler(middle, middle + count);
       this->m_head += count;
     } else {
       const std::size_t remaining{Capacity - head};
-      const Ty* middle{this->m_buffer + head};
-      std::move(middle + head, middle + remaining, first);
+      Ty* middle{this->m_buffer + head};
+      handler(middle + head, middle + remaining);
+
       count -= remaining;
-      std::move(this->m_buffer, this->m_buffer + count,
-                std::next(first, remaining));
+      handler(this->m_buffer, this->m_buffer + count);
       this->m_head = count;
     }
   }

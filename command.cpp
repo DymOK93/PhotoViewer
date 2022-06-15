@@ -4,25 +4,36 @@
 #include "gpio.hpp"
 #include "transmitter.hpp"
 
+#include <algorithm>
+
 #include <stm32f4xx.h>
 
+using namespace std;
 using Joystick = cmd::details::Joystick;
 
 namespace cmd {
+void CommandManager::Flush(io::Transmitter& transmitter) noexcept {
+  const auto chunk_size{
+      min(size(m_buffer), transmitter.GetRemainingQueueSize<Command>())};
+  m_buffer.consume(chunk_size, [&transmitter](Command* first, Command* last) {
+    const auto count{static_cast<size_t>(last - first)};
+    transmitter.SendCommand(first, count);
+  });
+}
+
 void CommandManager::on_joystick_button(Joystick::Button button) noexcept {
-  auto& transmitter{io::Transmitter::GetInstance()};
   switch (button) {
     case Joystick::Button::Down:
-      transmitter.SendCommand(Command::Type::GreenLedOff);
+      m_buffer.produce(Command::Type::GreenLedOff);
       break;
     case Joystick::Button::Up:
-      transmitter.SendCommand(Command::Type::GreenLedOn);
+      m_buffer.produce(Command::Type::GreenLedOn);
       break;
     case Joystick::Button::Left:
-      transmitter.SendCommand(Command::Type::BlueLedOff);
+      m_buffer.produce(Command::Type::BlueLedOff);
       break;
     case Joystick::Button::Right:
-      transmitter.SendCommand(Command::Type::BlueLedOn);
+      m_buffer.produce(Command::Type::BlueLedOn);
       break;
     default:
       break;

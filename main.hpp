@@ -1,5 +1,6 @@
 #pragma once
 #include "bmp.hpp"
+#include "display.hpp"
 #include "file.hpp"
 #include "lcd.hpp"
 
@@ -54,4 +55,29 @@ DirIt& FindNextFile(DirIt& dir_it, UnaryPredicate pred) noexcept {
   }
   return dir_it;
 }
+
+class DisplayGuard {
+  struct State {
+    std::uint32_t pixels_filled;
+    std::uint32_t rows_read;
+  };
+
+ public:
+  explicit DisplayGuard(Display& display) noexcept;
+
+  void Activate() noexcept;
+  void Refresh() noexcept;
+  void Draw(bmp::Rgb666 pixel) noexcept;
+
+  [[nodiscard]] bool IsFilled() noexcept;
+  [[nodiscard]] bool IsAllRowsRead() noexcept;
+
+  [[nodiscard]] bool NotifyFillPixel() noexcept;
+  [[nodiscard]] bool NotifyReadRow() noexcept;
+
+ private:
+  Display& m_display;
+  bool m_active{false};
+  State m_state{};
+};
 }  // namespace pv

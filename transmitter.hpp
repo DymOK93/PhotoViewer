@@ -173,6 +173,12 @@ class Transmitter : public pv::Singleton<Transmitter> {
                                          sizeof(bmp::Bgr888)};
   static constexpr std::size_t BLOCKS_COUNT{DATA_SIZE /
                                             BlockHeader::MAX_LENGTH};
+  template <class Ty>
+  using serialized_t =
+      decltype(std::declval<const Serializable<Ty>&>().Serialize());
+
+  using serialized_header_t = serialized_t<BlockHeader>;
+  using serialized_command_t = serialized_t<cmd::Command>;
 
  public:
   static constexpr std::size_t QUEUE_DEPTH{
@@ -186,18 +192,32 @@ class Transmitter : public pv::Singleton<Transmitter> {
 
   void SendData(const std::byte* buffer, std::size_t bytes_count);
 
-  void SendCommand(cmd::Command command);
+  void SendCommand(cmd::Command* command, std::size_t count);
 
   template <
       class... Commands,
-      std::enable_if_t<
-          std::conjunction_v<std::is_convertible<Commands, cmd::Command>...>,
-          int> = 0>
-  void SendCommands(Commands... commands) {
-    (SendCommand(commands), ...);
+      std::enable_if_t<(sizeof...(Commands) > 0) &&
+                           std::conjunction_v<
+                               std::is_convertible<Commands, cmd::Command>...>,
+                       int> = 0>
+  void SendCommand(Commands... commands) {
+    if constexpr (sizeof...(Commands) == 1) {
+      const BlockHeader header{BlockHeader::Category::Command, 1};
+      m_port.Transfer(header, commands...);
+    } else {
+      std::array storage{static_cast<cmd::Command>(commands)...};
+      SendCommand(std::data(storage), std::size(storage));
+    }
   }
 
-  std::size_t GetRemainingQueueSize() const noexcept;
+  template <class Ty>
+  std::size_t GetRemainingQueueSize() const noexcept {
+    using packet_t = std::conditional_t<std::is_convertible_v<Ty, cmd::Command>,
+                                        serialized_command_t, Ty>;
+    constexpr std::size_t chunk_size{calc_chunk_size<packet_t>()};
+    const auto bytes_available{QUEUE_DEPTH - m_port.GetQueueSize()};
+    return bytes_available / (chunk_size + sizeof(serialized_header_t));
+  }
 
  private:
   friend void OnOverwrite() noexcept;
@@ -206,7 +226,14 @@ class Transmitter : public pv::Singleton<Transmitter> {
   friend Singleton;
 
   Transmitter() = default;
-  void send_chunk(const std::byte* buffer, std::size_t bytes_count);
+  void send_chunk(BlockHeader::Category category,
+                  const std::byte* buffer,
+                  std::size_t bytes_count);
+
+  template <class Ty>
+  static constexpr std::size_t calc_chunk_size() noexcept {
+    return MAX_BLOCK_LENGTH - MAX_BLOCK_LENGTH % sizeof(Ty);
+  }
 
  private:
   details::ParallelPort<QUEUE_DEPTH> m_port{{PASS_DELAY, RETRY_DELAY}};

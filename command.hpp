@@ -1,9 +1,14 @@
 #pragma once
+#include "circular.hpp"
 #include "io.hpp"
 #include "singleton.hpp"
 
 #include <cstdint>
 #include <functional>
+
+namespace io {
+class Transmitter;
+}
 
 namespace cmd {
 struct Command : io::Serializable<Command> {
@@ -63,6 +68,8 @@ class Joystick {
 }  // namespace details
 
 class CommandManager : public pv::Singleton<CommandManager> {
+  static constexpr std::size_t INTERRUPT_QUEUE_SIZE{128};
+
  public:
   template <class Handler>
   void Execute(Command command, Handler&& handler) {
@@ -70,6 +77,8 @@ class CommandManager : public pv::Singleton<CommandManager> {
       std::invoke(std::forward<Handler>(handler), NextPictureTag{});
     }
   }
+
+  void Flush(io::Transmitter& transmitter) noexcept;
 
  private:
   friend void OnJoystickButton(details::Joystick::Button button) noexcept;
@@ -80,5 +89,6 @@ class CommandManager : public pv::Singleton<CommandManager> {
 
  private:
   details::Joystick m_joystick;
+  storage::CircularBuffer<INTERRUPT_QUEUE_SIZE, Command> m_buffer;
 };
 }  // namespace cmd

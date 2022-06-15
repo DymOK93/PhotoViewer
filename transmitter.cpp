@@ -11,27 +11,38 @@ Transmitter& Transmitter::GetInstance() noexcept {
 
 void Transmitter::SendData(const byte* buffer, size_t bytes_count) {
   while (bytes_count > MAX_BLOCK_LENGTH) {
-    send_chunk(buffer, MAX_BLOCK_LENGTH);
+    send_chunk(BlockHeader::Category::Data, buffer, MAX_BLOCK_LENGTH);
     buffer += MAX_BLOCK_LENGTH;
     bytes_count -= MAX_BLOCK_LENGTH;
   }
   if (bytes_count) {
-    send_chunk(buffer, bytes_count);
+    send_chunk(BlockHeader::Category::Data, buffer, bytes_count);
   }
 }
 
-void Transmitter::SendCommand(cmd::Command command) {
-  const BlockHeader header{BlockHeader::Category::Command, 1};
-  m_port.Transfer(header, command);
+void Transmitter::SendCommand(cmd::Command* command, size_t count) {
+  constexpr auto serializer{[](cmd::Command target) {
+    return static_cast<const Serializable<cmd::Command>&>(target).Serialize();
+  }};
+
+  while (count > 0) {
+    serialized_command_t chunk[MAX_BLOCK_LENGTH / sizeof(serialized_command_t)];
+    const size_t chunk_size{min(count, size(chunk))};
+
+    for (size_t idx = 0; idx < chunk_size; ++idx) {
+      chunk[idx] = serializer(*command++);
+    }
+    send_chunk(BlockHeader::Category::Command,
+               reinterpret_cast<const byte*>(chunk),
+               chunk_size * sizeof(serialized_command_t));
+    count -= chunk_size;
+  }
 }
 
-size_t Transmitter::GetRemainingQueueSize() const noexcept {
-  return QUEUE_DEPTH - m_port.GetQueueSize();
-}
-
-void Transmitter::send_chunk(const byte* buffer, size_t bytes_count) {
-  const BlockHeader header{BlockHeader::Category::Data,
-                           static_cast<uint8_t>(bytes_count)};
+void Transmitter::send_chunk(BlockHeader::Category category,
+                             const byte* buffer,
+                             size_t bytes_count) {
+  const BlockHeader header{category, static_cast<uint8_t>(bytes_count)};
   m_port.Transfer(header);
   m_port.Transfer(buffer, bytes_count);
 }
