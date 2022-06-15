@@ -72,7 +72,7 @@ class ParallelPort {
 
  private:
   void start_transmission() noexcept {
-    if (!m_active) {
+    if (!m_active && !std::empty(m_buffer)) {
       m_active = true;
       start_transmission_unchecked();
     }
@@ -185,7 +185,7 @@ class Transmitter : public pv::Singleton<Transmitter> {
       DATA_SIZE + BLOCKS_COUNT * sizeof(static_cast<Serializable<BlockHeader>&>(
                                             std::declval<BlockHeader&>())
                                             .Serialize())};
-  static constexpr std::uint16_t PASS_DELAY{100}, RETRY_DELAY{1000};
+  static constexpr std::uint16_t PASS_DELAY{250}, RETRY_DELAY{1000};
 
  public:
   static Transmitter& GetInstance() noexcept;
