@@ -10,6 +10,7 @@
 
 #include <array>
 #include <cstddef>
+#include <limits>
 #include <utility>
 
 #include <stm32f4xx.h>
@@ -29,7 +30,6 @@ class ParallelPort {
       : m_settings{settings},
         m_timer{setup_transaction_timer(interrupt_priority)} {
     prepare_gpio();
-    setup_transaction_timer();
     listen_cts_and_ov();
   }
 
@@ -116,7 +116,9 @@ class ParallelPort {
                 GPIO_OSPEEDER_OSPEEDR10 | GPIO_OSPEEDER_OSPEEDR11 |
                 GPIO_OSPEEDER_OSPEEDR12 | GPIO_OSPEEDER_OSPEEDR13 |
                 GPIO_OSPEEDER_OSPEEDR14 | GPIO_OSPEEDER_OSPEEDR15);
-    SET_BIT(gpio.PUPDR, GPIO_PUPDR_PUPDR7_1  // RTS
+    SET_BIT(gpio.PUPDR, GPIO_PUPDR_PUPDR5_1          // OV
+                            | GPIO_PUPDR_PUPDR6_1 |  // CTS
+                            GPIO_PUPDR_PUPDR7_1      // RTS
                             | GPIO_PUPDR_PUPDR8_1 | GPIO_PUPDR_PUPDR9_1 |
                             GPIO_PUPDR_PUPDR10_1 | GPIO_PUPDR_PUPDR11_1 |
                             GPIO_PUPDR_PUPDR12_1 | GPIO_PUPDR_PUPDR13_1 |
@@ -134,7 +136,7 @@ class ParallelPort {
     return timer;
   }
 
-  static void listen_cts_and_ov() {
+  static void listen_cts_and_ov(std::uint8_t interrupt_priority) {
     auto& exti{event::ExtiManager::GetInstance().Get()};
     SET_BIT(exti.IMR, EXTI_IMR_MR5 | EXTI_IMR_MR6);
     SET_BIT(exti.RTSR, EXTI_RTSR_TR5 | EXTI_RTSR_TR6);
@@ -176,7 +178,8 @@ class Transmitter : public pv::Singleton<Transmitter> {
                                             BlockHeader::MAX_LENGTH};
 
   static constexpr std::uint8_t INTERRUPT_PRIORITY{12};
-  static constexpr std::uint16_t PASS_DELAY{100}, RETRY_DELAY{1000};
+  static constexpr std::uint16_t PASS_DELAY{100},
+      RETRY_DELAY{std::numeric_limits<std::uint16_t>::max()};
 
   template <class Ty>
   using serialized_t =
