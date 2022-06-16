@@ -45,16 +45,19 @@ void Transmitter::send_chunk(BlockHeader::Category category,
   const BlockHeader header{category, static_cast<uint8_t>(bytes_count)};
   m_port.Transfer(header);
   m_port.Transfer(buffer, bytes_count);
+  m_queue_size = m_port.GetQueueSize();
 }
 
 void OnOverwrite() noexcept {
   auto& transmitter{Transmitter::GetInstance()};
   transmitter.m_port.Retry();
+  ++transmitter.m_ov_count;
 }
 
 void OnClearToSend() noexcept {
   auto& transmitter{Transmitter::GetInstance()};
   transmitter.m_port.PassNext();
+  ++transmitter.m_cts_count;
 }
 
 void OnReadyToSend() noexcept {

@@ -32,7 +32,7 @@ std::optional<Image> TryOpenImageFile(const fs::DirectoryEntry& entry) noexcept;
 bool IsSupportedImageFile(const fs::DirectoryEntry& entry) noexcept;
 
 template <class UnaryPredicate>
-size_t CountFiles(const char* directory, UnaryPredicate pred) {
+size_t CountFiles(const char* directory, UnaryPredicate pred) noexcept {
   size_t count{0};
   for (fs::DirectoryIterator dir_it{directory};
        dir_it != fs::DirectoryIterator{}; ++dir_it) {

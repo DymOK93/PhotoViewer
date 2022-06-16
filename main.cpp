@@ -42,38 +42,16 @@ int EventLoop(fs::CyclicDirectoryIterator dir_it) noexcept {
 
   auto& transmitter{io::Transmitter::GetInstance()};
   auto& command_manager{cmd::CommandManager::GetInstance()};
-  const auto command_flusher{[&command_manager, &transmitter]() {
-    command_manager.Flush(transmitter);
-  }};
 
   DisplayGuard display{pv::Display::GetInstance()};
-  optional<Image> image;
-
   display.Activate();
 
+  optional<Image> image;
+
   for (;;) {
-    command_flusher();
+    command_manager.Flush(transmitter);
 
-    bool cmd_success{true};
-    for (size_t idx = 0; idx < COMMAND_TIMESLICE && !empty(cmd_queue); ++idx) {
-      const auto command{cmd_queue.consume()};
-      command_manager.Execute(command, [&](cmd::NextPictureTag) {
-        if (FindNextFile(dir_it, [&image](const fs::DirectoryEntry& entry) {
-              image = TryOpenImageFile(entry);
-              return image.has_value();
-            }) != fs::CyclicDirectoryIterator{}) {
-          display.Refresh();
-        } else {
-          cmd_success = false;
-        }
-      });
-      command_flusher();
-    }
-    if (!cmd_success) {
-      return EXIT_FAILURE;
-    }
-
-    if (!display.IsFilled()) {
+    if (!display.IsFilled() && image.has_value()) {
       for (size_t idx = 0;
            idx < PIXEL_TIMESLICE && size(pixel_queue) >= sizeof(bmp::Rgb666) &&
            display.NotifyFillPixel();
@@ -82,6 +60,25 @@ int EventLoop(fs::CyclicDirectoryIterator dir_it) noexcept {
         pixel_queue.consume(reinterpret_cast<std::byte*>(addressof(pixel)),
                             sizeof(bmp::Rgb666));
         display.Draw(pixel);
+      }
+    } else {
+      bool cmd_success{true};
+      for (size_t idx = 0;
+           idx < COMMAND_TIMESLICE && !empty(cmd_queue) && cmd_success; ++idx) {
+        const auto command{cmd_queue.consume()};
+        command_manager.Execute(command, [&](cmd::NextPictureTag) {
+          if (FindNextFile(dir_it, [&image](const fs::DirectoryEntry& entry) {
+                image = TryOpenImageFile(entry);
+                return image.has_value();
+              }) != fs::CyclicDirectoryIterator{}) {
+            display.Refresh();
+          } else {
+            cmd_success = false;
+          }
+        });
+      }
+      if (!cmd_success) {
+        return EXIT_FAILURE;
       }
     }
 
@@ -95,13 +92,8 @@ int EventLoop(fs::CyclicDirectoryIterator dir_it) noexcept {
       if (bytes_read.value_or(0) != sizeof row) {
         return EXIT_FAILURE;
       }
-
-      for (uint16_t idx = 0; idx < lcd::Panel::PIXEL_HORIZONTAL; ++idx) {
-        const bmp::Bgr888 pixel{row[lcd::Panel::PIXEL_HORIZONTAL - idx - 1]};
-        transmitter.SendData(reinterpret_cast<const byte*>(addressof(pixel)),
-                             sizeof(bmp::Bgr888));
-        command_flusher();
-      }
+      reverse(begin(row), end(row));
+      transmitter.SendData(reinterpret_cast<const byte*>(row), sizeof row);
     }
   }
   return EXIT_SUCCESS;

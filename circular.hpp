@@ -49,12 +49,12 @@ class CircularBuffer : CircularQueue<Capacity, Ty> {
   void produce(Ty value) noexcept { MyBase::push(value); }
 
   template <class InputIt>
-  bool produce(InputIt first, std::size_t count) noexcept {
+  bool produce(InputIt in, std::size_t count) noexcept {
     if (!count || this->m_size + count > Capacity) {
       return false;
     }
-    produce_impl(first, count);
     this->m_size = this->m_size + count;
+    produce_impl(in, count);
     return true;
   }
 
@@ -67,8 +67,8 @@ class CircularBuffer : CircularQueue<Capacity, Ty> {
     if (!count || this->m_size < count) {
       return false;
     }
-    consume_impl(count, handler);
     this->m_size = this->m_size - count;
+    consume_impl(count, handler);
     return true;
   }
 
@@ -84,15 +84,15 @@ class CircularBuffer : CircularQueue<Capacity, Ty> {
 
  private:
   template <class InputIt>
-  void produce_impl(InputIt first, std::size_t count) noexcept {
-    if (const std::size_t head = this->m_head, tail = this->m_tail;
-        tail < head || Capacity - tail > count) {
-      std::move(first, std::next(first, count), this->m_buffer + tail);
-      this->m_tail = this->m_tail + count;
+  void produce_impl(InputIt in, std::size_t count) noexcept {
+    if (const std::size_t tail = this->m_tail;
+        tail < this->m_head || Capacity - tail > count) {
+      std::move(in, std::next(in, count), this->m_buffer + tail);
+      this->m_tail = tail + count;
     } else {
       const std::size_t remaining{Capacity - tail};
-      const auto middle{std::next(first, remaining)};
-      std::move(first, middle, this->m_buffer + tail);
+      const auto middle{std::next(in, remaining)};
+      std::move(in, middle, this->m_buffer + tail);
       count -= remaining;
       std::move(middle, std::next(middle, count), this->m_buffer);
       this->m_tail = count;
@@ -101,11 +101,11 @@ class CircularBuffer : CircularQueue<Capacity, Ty> {
 
   template <class TransferHandler>
   void consume_impl(std::size_t count, TransferHandler handler) noexcept {
-    if (const std::size_t head = this->m_head, tail = this->m_tail;
-        head < tail || Capacity - head > count) {
+    if (const std::size_t head = this->m_head;
+        head < this->m_tail || Capacity - head > count) {
       Ty* middle{this->m_buffer + head};
       handler(middle, middle + count);
-      this->m_head = this->m_head + count;
+      this->m_head = head + count;
     } else {
       const std::size_t remaining{Capacity - head};
       Ty* middle{this->m_buffer + head};

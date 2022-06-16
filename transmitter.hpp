@@ -182,10 +182,8 @@ class Transmitter : public pv::Singleton<Transmitter> {
 
  public:
   static constexpr std::size_t QUEUE_DEPTH{
-      DATA_SIZE + BLOCKS_COUNT * sizeof(static_cast<Serializable<BlockHeader>&>(
-                                            std::declval<BlockHeader&>())
-                                            .Serialize())};
-  static constexpr std::uint16_t PASS_DELAY{250}, RETRY_DELAY{1000};
+      DATA_SIZE + BLOCKS_COUNT * sizeof(serialized_header_t)};
+  static constexpr std::uint16_t PASS_DELAY{100}, RETRY_DELAY{1000};
 
  public:
   static Transmitter& GetInstance() noexcept;
@@ -237,5 +235,7 @@ class Transmitter : public pv::Singleton<Transmitter> {
 
  private:
   details::ParallelPort<QUEUE_DEPTH> m_port{{PASS_DELAY, RETRY_DELAY}};
+  std::size_t m_queue_size{0};
+  std::size_t m_cts_count{0}, m_ov_count{0};
 };
 }  // namespace io
