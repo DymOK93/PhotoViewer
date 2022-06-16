@@ -21,7 +21,7 @@ struct IListener {
 class Receiver : public pv::Singleton<Receiver> {
   static constexpr std::uint16_t SPEED_MANTISSA{8};
   static constexpr std::uint16_t SPEED_FRACTION{11};
-  static constexpr std::uint8_t INTERRUPT_PRIORITY{15};
+  static constexpr std::uint8_t INTERRUPT_PRIORITY{14};
 
  public:
   void Listen(IListener* listener) noexcept;

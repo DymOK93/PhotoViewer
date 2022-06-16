@@ -249,7 +249,7 @@ void Card::setup_detection() noexcept {
   SET_BIT(exti.RTSR, EXTI_RTSR_TR3);
   SET_BIT(exti.FTSR, EXTI_FTSR_TR3);
   SET_BIT(SYSCFG->EXTICR[0], SYSCFG_EXTICR1_EXTI3_PD);
-  NVIC_SetPriority(EXTI3_IRQn, 0);
+  NVIC_SetPriority(EXTI3_IRQn, INTERRUPT_PRIORITY);
   NVIC_EnableIRQ(EXTI3_IRQn);
 }
 

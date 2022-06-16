@@ -225,6 +225,7 @@ struct IAcceptor {
 class Card : public pv::Singleton<Card> {
   enum class Protocol { Unknown, PhysicalSpecV1, PhysicalSpecV2 };
 
+  static constexpr std::uint8_t INTERRUPT_PRIORITY{13};
   static constexpr std::uint32_t SDIO_CLOCK{48'000'000};
   static constexpr std::uint32_t INITIAL_CLOCK{400'000};
   static constexpr std::uint32_t INITIAL_CLOCK_DIVIDER{SDIO_CLOCK /

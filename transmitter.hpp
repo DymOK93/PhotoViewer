@@ -25,8 +25,9 @@ class ParallelPort {
   };
 
  public:
-  ParallelPort(Settings settings) noexcept
-      : m_settings{settings}, m_timer{setup_transaction_timer()} {
+  ParallelPort(Settings settings, std::uint8_t interrupt_priority) noexcept
+      : m_settings{settings},
+        m_timer{setup_transaction_timer(interrupt_priority)} {
     prepare_gpio();
     setup_transaction_timer();
     listen_cts_and_ov();
@@ -122,13 +123,13 @@ class ParallelPort {
                             GPIO_PUPDR_PUPDR14_1 | GPIO_PUPDR_PUPDR15_1);
   }
 
-  static TIM_TypeDef* setup_transaction_timer() {
+  static TIM_TypeDef* setup_transaction_timer(std::uint8_t interrupt_priority) {
     TIM_TypeDef* timer{TIM6};
     SET_BIT(RCC->APB1ENR, RCC_APB1ENR_TIM6EN);
     SET_BIT(timer->CR1, TIM_CR1_OPM);
     SET_BIT(timer->DIER, TIM_DIER_UIE);
     timer->PSC = SystemCoreClock / 1'000'000;
-    NVIC_SetPriority(TIM6_IRQn, 15);
+    NVIC_SetPriority(TIM6_IRQn, interrupt_priority);
     NVIC_EnableIRQ(TIM6_IRQn);
     return timer;
   }
@@ -173,6 +174,10 @@ class Transmitter : public pv::Singleton<Transmitter> {
                                          sizeof(bmp::Bgr888)};
   static constexpr std::size_t BLOCKS_COUNT{DATA_SIZE /
                                             BlockHeader::MAX_LENGTH};
+
+  static constexpr std::uint8_t INTERRUPT_PRIORITY{12};
+  static constexpr std::uint16_t PASS_DELAY{100}, RETRY_DELAY{1000};
+
   template <class Ty>
   using serialized_t =
       decltype(std::declval<const Serializable<Ty>&>().Serialize());
@@ -183,7 +188,6 @@ class Transmitter : public pv::Singleton<Transmitter> {
  public:
   static constexpr std::size_t QUEUE_DEPTH{
       DATA_SIZE + BLOCKS_COUNT * sizeof(serialized_header_t)};
-  static constexpr std::uint16_t PASS_DELAY{100}, RETRY_DELAY{1000};
 
  public:
   static Transmitter& GetInstance() noexcept;
@@ -234,8 +238,9 @@ class Transmitter : public pv::Singleton<Transmitter> {
   }
 
  private:
-  details::ParallelPort<QUEUE_DEPTH> m_port{{PASS_DELAY, RETRY_DELAY}};
-  std::size_t m_queue_size{0};
-  std::size_t m_cts_count{0}, m_ov_count{0};
+  details::ParallelPort<QUEUE_DEPTH> m_port{{PASS_DELAY, RETRY_DELAY},
+                                            INTERRUPT_PRIORITY};
+  volatile std::size_t m_queue_size{0};
+  volatile std::size_t m_cts_count{0}, m_ov_count{0};
 };
 }  // namespace io
