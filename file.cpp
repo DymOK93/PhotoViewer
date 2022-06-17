@@ -1,5 +1,6 @@
 #include "file.hpp"
 
+#include <array>
 #include <cstring>
 
 using namespace std;
@@ -7,11 +8,11 @@ using namespace std;
 namespace fs {
 LogicalDrive::LogicalDrive(std::optional<std::uint8_t> number,
                            bool delayed_mount) noexcept {
-  char drive_name[2]{};
+  array<char, 2> drive_name{};
   if (number) {
     drive_name[0] = static_cast<char>(*number);
   }
-  if (f_mount(addressof(m_fs), drive_name, !delayed_mount) != FR_OK) {
+  if (f_mount(addressof(m_fs), data(drive_name), !delayed_mount) != FR_OK) {
     m_fs.fs_type = 0;
   }
 }
@@ -126,7 +127,7 @@ CyclicDirectoryIterator& CyclicDirectoryIterator::operator++() noexcept {
     } else {
       MyBase::operator++();
     }
-  } 
+  }
   return *this;
 }
 }  // namespace fs

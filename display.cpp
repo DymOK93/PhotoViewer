@@ -1,5 +1,7 @@
 #include "display.hpp"
 
+#include <array>
+
 using namespace std;
 
 namespace pv {
@@ -24,8 +26,8 @@ void Display::Refresh() noexcept {
 }
 
 void Display::Draw(bmp::Rgb666 pixel) noexcept {
-  const uint16_t color[2]{pixel.red_green, pixel.blue};
-  lcd::Panel::GetInstance().Write(color, size(color));
+  const array color{pixel.red_green, pixel.blue};
+  lcd::Panel::GetInstance().Write(data(color), size(color));
 }
 
 void Display::setup_18bit_color(lcd::Panel& lcd) noexcept {

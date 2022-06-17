@@ -47,33 +47,36 @@ int EventLoop(fs::CyclicDirectoryIterator dir_it) noexcept {
   display.Activate();
 
   optional<Image> image;
+  optional<ImageSender> image_sender;
+  PixelPart current_pixel;
 
   for (;;) {
     command_manager.Flush(transmitter);
 
     if (!display.IsFilled() && image.has_value()) {
-      for (size_t idx = 0;
-           idx < PIXEL_TIMESLICE && size(pixel_queue) >= sizeof(bmp::Rgb666) &&
-           display.NotifyFillPixel();
-           ++idx) {
-        bmp::Rgb666 pixel;
-        pixel_queue.consume(reinterpret_cast<std::byte*>(addressof(pixel)),
-                            sizeof(bmp::Rgb666));
-        display.Draw(pixel);
+      for (size_t idx = 0; idx < PIXEL_TIMESLICE; ++idx) {
+        if (!current_pixel.Update(pixel_queue)) {
+          break;
+        }
+        display.Draw(move(current_pixel).Get());
+        display.NotifyFillPixel();
       }
     } else {
       bool cmd_success{true};
-      for (size_t idx = 0;
-           idx < COMMAND_TIMESLICE && !empty(cmd_queue) && cmd_success; ++idx) {
+      for (size_t idx = 0; idx < COMMAND_TIMESLICE; ++idx) {
         const auto command{cmd_queue.consume()};
-        command_manager.Execute(command, [&](cmd::NextPictureTag) {
+        if (!command) {
+          break;
+        }
+        command_manager.Execute(*command, [&](cmd::NextPictureTag) {
           if (FindNextFile(dir_it, [&image](const fs::DirectoryEntry& entry) {
                 image = TryOpenImageFile(entry);
                 return image.has_value();
-              }) != fs::CyclicDirectoryIterator{}) {
-            display.Refresh();
-          } else {
+              }) == fs::CyclicDirectoryIterator{}) {
             cmd_success = false;
+          } else {
+            display.Refresh();
+            image_sender.emplace(*image);
           }
         });
       }
@@ -82,18 +85,9 @@ int EventLoop(fs::CyclicDirectoryIterator dir_it) noexcept {
       }
     }
 
-    if (image.has_value() &&
-        transmitter.GetRemainingQueueSize<bmp::Rgb666>() >=
-            lcd::Panel::PIXEL_HORIZONTAL &&
-        display.NotifyReadRow()) {
-      bmp::Bgr888 row[lcd::Panel::PIXEL_HORIZONTAL];
-      const auto bytes_read{
-          image->file.Read(reinterpret_cast<byte*>(row), sizeof row)};
-      if (bytes_read.value_or(0) != sizeof row) {
-        return EXIT_FAILURE;
-      }
-      reverse(begin(row), end(row));
-      transmitter.SendData(reinterpret_cast<const byte*>(row), sizeof row);
+    if (image_sender.has_value() &&
+        image_sender->Transmit(transmitter) == ImageSender::Status::IoError) {
+      return EXIT_FAILURE;
     }
   }
   return EXIT_SUCCESS;
@@ -111,7 +105,6 @@ optional<Image> TryOpenImageFile(const fs::DirectoryEntry& entry) noexcept {
 
     BREAK_ON_FALSE(image->GetWidth() == lcd::Panel::PIXEL_HORIZONTAL);
     BREAK_ON_FALSE(image->GetHeight() == lcd::Panel::PIXEL_VERTICAL);
-    BREAK_ON_FALSE(file.Seek(image->GetBitmapOffset()));
 
     return Image{move(file), *image};
 
@@ -135,35 +128,19 @@ void DisplayGuard::Activate() noexcept {
 
 void DisplayGuard::Refresh() noexcept {
   m_display.Refresh();
-  m_state = {};
+  m_pixels_filled = 0;
 }
 
 void DisplayGuard::Draw(bmp::Rgb666 pixel) noexcept {
   m_display.Draw(pixel);
 }
 
+void DisplayGuard::NotifyFillPixel() noexcept {
+  ++m_pixels_filled;
+}
+
 bool DisplayGuard::IsFilled() noexcept {
-  return m_state.pixels_filled == lcd::Panel::PIXEL_COUNT;
-}
-
-bool DisplayGuard::IsAllRowsRead() noexcept {
-  return m_state.rows_read == lcd::Panel::PIXEL_VERTICAL;
-}
-
-bool DisplayGuard::NotifyFillPixel() noexcept {
-  if (IsFilled()) {
-    return false;
-  }
-  ++m_state.pixels_filled;
-  return true;
-}
-
-bool DisplayGuard::NotifyReadRow() noexcept {
-  if (IsAllRowsRead()) {
-    return false;
-  }
-  ++m_state.rows_read;
-  return true;
+  return m_pixels_filled == lcd::Panel::PIXEL_COUNT;
 }
 
 ListenerGuard::ListenerGuard(io::IListener& listener,
@@ -174,5 +151,53 @@ ListenerGuard::ListenerGuard(io::IListener& listener,
 
 ListenerGuard::~ListenerGuard() noexcept {
   m_receiver.Listen(nullptr);
+}
+
+PixelPart::PixelPart() noexcept {
+  new (std::data(m_pixel)) pixel_t;
+}
+
+auto PixelPart::Get() const& noexcept -> pixel_t {
+  const auto as_pixel{reinterpret_cast<const pixel_t*>(std::data(m_pixel))};
+  return *as_pixel;
+}
+
+auto PixelPart::Get() && noexcept -> pixel_t {
+  const auto as_pixel{reinterpret_cast<const pixel_t*>(std::data(m_pixel))};
+  m_bytes_updated = 0;
+  return *as_pixel;
+}
+
+ImageSender::ImageSender(Image& image) noexcept : m_image{image} {
+  m_row.emplace();
+}
+
+auto ImageSender::Transmit(io::Transmitter& transmitter) noexcept -> Status {
+  if (m_rows_idx == lcd::Panel::PIXEL_VERTICAL) {
+    return Status::Completed;
+  }
+
+  if (m_row) {
+    transmitter.SendData(reinterpret_cast<byte*>(data(*m_row)),
+                         sizeof(pixel_row_t));
+    ++m_rows_idx;
+    m_row.reset();
+    return Status::InProgress;
+  }
+
+  auto& [file, image]{m_image};
+  do {
+    BREAK_ON_FALSE(m_rows_idx > 0 || file.Seek(image.GetBitmapOffset()));
+
+    BREAK_ON_FALSE(file.Read(reinterpret_cast<byte*>(data(m_row.emplace())),
+                             sizeof(pixel_row_t)) == sizeof(pixel_row_t));
+
+    reverse(begin(*m_row), end(*m_row));
+    return Status::InProgress;
+
+  } while (false);
+
+  m_row.reset();
+  return Status::IoError;
 }
 }  // namespace pv

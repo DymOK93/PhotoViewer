@@ -30,32 +30,29 @@ class ParallelPort {
       : m_settings{settings},
         m_timer{setup_transaction_timer(interrupt_priority)} {
     prepare_gpio();
-    listen_cts_and_ov();
+    listen_cts_and_ov(interrupt_priority);
   }
 
-  void Transfer(const std::byte* buffer, std::size_t bytes_count) {
-    m_buffer.produce(buffer, bytes_count);
-    start_transmission();
+  void Transfer(const std::byte* buffer, std::size_t bytes_count) noexcept {
+    while (bytes_count > 0) {
+      bytes_count -= m_buffer.produce(buffer, bytes_count);
+      start_transmission();
+    }
   }
 
   template <class... Types>
   void Transfer(const Serializable<Types>&... values) {
-    const auto producer{[this](const auto& value) {
-      const auto serialized{value.Serialize()};
-      m_buffer.produce(
-          reinterpret_cast<const std::byte*>(std::addressof(serialized)),
-          sizeof(serialized));
-    }};
-    (producer(values), ...);
-    start_transmission();
+    std::array buffer{values.Serialize()...};
+    Transfer(reinterpret_cast<const std::byte*>(std::data(buffer)),
+             std::size(buffer));
   }
 
   void PassNext() noexcept {
     switch_rts(false);
-    if (std::empty(m_buffer)) {
+    if (const auto value = m_buffer.consume(); !value) {
       m_active = false;
     } else {
-      start_transmission_unchecked();
+      start_transmission_unchecked(*value);
     }
   }
 
@@ -67,20 +64,18 @@ class ParallelPort {
 
   void SetReady() const noexcept { switch_rts(true); }
 
-  [[nodiscard]] std::size_t GetQueueSize() const noexcept {
-    return std::size(m_buffer);
-  }
-
  private:
   void start_transmission() noexcept {
-    if (!m_active && !std::empty(m_buffer)) {
-      m_active = true;
-      start_transmission_unchecked();
+    if (!m_active) {
+      if (const auto value = m_buffer.consume(); value) {
+        m_active = true;
+        start_transmission_unchecked(*value);
+      }
     }
   }
 
-  void start_transmission_unchecked() noexcept {
-    expose_data(m_buffer.consume());
+  void start_transmission_unchecked(std::byte value) noexcept {
+    expose_data(value);
     schedule_transaction(m_settings.pass_delay);
   }
 
@@ -142,7 +137,7 @@ class ParallelPort {
     SET_BIT(exti.RTSR, EXTI_RTSR_TR5 | EXTI_RTSR_TR6);
     SET_BIT(SYSCFG->EXTICR[1],
             SYSCFG_EXTICR2_EXTI5_PB | SYSCFG_EXTICR2_EXTI6_PB);
-    NVIC_SetPriority(EXTI9_5_IRQn, 15);
+    NVIC_SetPriority(EXTI9_5_IRQn, interrupt_priority);
     NVIC_EnableIRQ(EXTI9_5_IRQn);
   }
 
@@ -215,15 +210,6 @@ class Transmitter : public pv::Singleton<Transmitter> {
     }
   }
 
-  template <class Ty>
-  std::size_t GetRemainingQueueSize() const noexcept {
-    using packet_t = std::conditional_t<std::is_convertible_v<Ty, cmd::Command>,
-                                        serialized_command_t, Ty>;
-    constexpr std::size_t chunk_size{calc_chunk_size<packet_t>()};
-    const auto bytes_available{QUEUE_DEPTH - m_port.GetQueueSize()};
-    return bytes_available / (chunk_size + sizeof(serialized_header_t));
-  }
-
  private:
   friend void OnOverwrite() noexcept;
   friend void OnClearToSend() noexcept;
@@ -243,7 +229,5 @@ class Transmitter : public pv::Singleton<Transmitter> {
  private:
   details::ParallelPort<QUEUE_DEPTH> m_port{{PASS_DELAY, RETRY_DELAY},
                                             INTERRUPT_PRIORITY};
-  volatile std::size_t m_queue_size{0};
-  volatile std::size_t m_cts_count{0}, m_ov_count{0};
 };
 }  // namespace io

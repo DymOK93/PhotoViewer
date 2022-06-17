@@ -1,6 +1,7 @@
 #include "bmp.hpp"
 #include "break_on.hpp"
 
+#include <array>
 #include <climits>
 #include <cstring>
 #include <type_traits>
@@ -48,12 +49,12 @@ optional<Image> Image::FromStream(const byte* stream, size_t size) noexcept {
 }
 
 optional<Image> Image::FromFile(fs::File& file) noexcept {
-  byte buffer[IMAGE_HEADER_RAW_SIZE];
-  const auto bytes_read{file.Read(buffer, IMAGE_HEADER_RAW_SIZE)};
+  array<byte, IMAGE_HEADER_RAW_SIZE> buffer;
+  const auto bytes_read{file.Read(data(buffer), IMAGE_HEADER_RAW_SIZE)};
   if (!bytes_read) {
     return nullopt;
   }
-  return FromStream(buffer, *bytes_read);
+  return FromStream(data(buffer), *bytes_read);
 }
 
 uint32_t Image::GetWidth() const noexcept {

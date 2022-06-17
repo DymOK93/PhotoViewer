@@ -4,9 +4,12 @@
 #include "file.hpp"
 #include "lcd.hpp"
 #include "receiver.hpp"
+#include "transmitter.hpp"
 
+#include <array>
 #include <cstdio>
 #include <functional>
+#include <memory>
 #include <optional>
 #include <type_traits>
 
@@ -58,11 +61,6 @@ DirIt& FindNextFile(DirIt& dir_it, UnaryPredicate pred) noexcept {
 }
 
 class DisplayGuard {
-  struct State {
-    std::uint32_t pixels_filled;
-    std::uint32_t rows_read;
-  };
-
  public:
   explicit DisplayGuard(Display& display) noexcept;
 
@@ -70,16 +68,13 @@ class DisplayGuard {
   void Refresh() noexcept;
   void Draw(bmp::Rgb666 pixel) noexcept;
 
+  void NotifyFillPixel() noexcept;
   [[nodiscard]] bool IsFilled() noexcept;
-  [[nodiscard]] bool IsAllRowsRead() noexcept;
-
-  [[nodiscard]] bool NotifyFillPixel() noexcept;
-  [[nodiscard]] bool NotifyReadRow() noexcept;
 
  private:
   Display& m_display;
   bool m_active{false};
-  State m_state{};
+  std::size_t m_pixels_filled{};
 };
 
 class ListenerGuard {
@@ -93,5 +88,55 @@ class ListenerGuard {
 
  private:
   io::Receiver& m_receiver;
+};
+
+class PixelPart {
+  using pixel_t = bmp::Rgb666;
+
+ public:
+  PixelPart() noexcept;
+  PixelPart(const PixelPart&) = delete;
+  PixelPart(PixelPart&&) = delete;
+  PixelPart& operator=(const PixelPart&) = delete;
+  PixelPart& operator=(PixelPart&&) = delete;
+  ~PixelPart() = default;
+
+  template <class CircularBuffer>
+  bool Update(CircularBuffer& cb) noexcept {
+    m_bytes_updated += cb.consume(std::data(m_pixel) + m_bytes_updated,
+                                  sizeof(pixel_t) - m_bytes_updated);
+    return m_bytes_updated == sizeof(pixel_t);
+  }
+
+  pixel_t Get() const& noexcept;
+  pixel_t Get() && noexcept;
+
+ private:
+  std::array<std::byte, sizeof(pixel_t)> m_pixel;
+  std::uint8_t m_bytes_updated;
+};
+
+class ImageSender {
+ public:
+  enum class Status { Completed, InProgress, IoError };
+
+ private:
+  using pixel_t = bmp::Bgr888;
+  using pixel_row_t = std::array<pixel_t, lcd::Panel::PIXEL_HORIZONTAL>;
+
+ public:
+  ImageSender(Image& image) noexcept;
+  ImageSender(const ImageSender&) = delete;
+  ImageSender(ImageSender&&) = delete;
+  ImageSender& operator=(const ImageSender&) = delete;
+  ImageSender& operator=(ImageSender&&) = delete;
+  ~ImageSender() = default;
+
+  Status Transmit(io::Transmitter& transmitter) noexcept;
+
+ private:
+  Image& m_image;
+  std::optional<pixel_row_t> m_row;
+  std::size_t m_rows_idx{0};
 };
 }  // namespace pv

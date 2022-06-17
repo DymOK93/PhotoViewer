@@ -13,12 +13,11 @@ using Joystick = cmd::details::Joystick;
 
 namespace cmd {
 void CommandManager::Flush(io::Transmitter& transmitter) noexcept {
-  const auto chunk_size{
-      min(size(m_buffer), transmitter.GetRemainingQueueSize<Command>())};
-  m_buffer.consume(chunk_size, [&transmitter](Command* first, Command* last) {
-    const auto count{static_cast<size_t>(last - first)};
-    transmitter.SendCommand(first, count);
-  });
+  m_buffer.consume(INTERRUPT_QUEUE_SIZE,
+                   [&transmitter](Command* first, Command* last) {
+                     const auto count{static_cast<size_t>(last - first)};
+                     transmitter.SendCommand(first, count);
+                   });
 }
 
 void CommandManager::on_joystick_button(Joystick::Button button) noexcept {
