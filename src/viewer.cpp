@@ -1,4 +1,4 @@
-#include "main.hpp"
+#include "viewer.hpp"
 #include "break_on.hpp"
 #include "command.hpp"
 #include "display.hpp"

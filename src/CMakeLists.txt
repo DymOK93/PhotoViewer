@@ -9,6 +9,7 @@ set(BASIC_COMPILE_OPTIONS
         -mthumb
         -mfpu=fpv4-sp-d16
         -mfloat-abi=hard
+        -fvisibility=hidden
         -fdata-sections
         -ffunction-sections
         -fno-exceptions
@@ -51,8 +52,6 @@ add_baremetal_executable(PhotoViewer
                 "gpio.hpp"
                 "lcd.hpp"
                 "lcd.cpp"
-                "main.hpp"
-                "main.cpp"
                 "receiver.hpp"
                 "receiver.cpp"
                 "request_parser.hpp"
@@ -60,7 +59,9 @@ add_baremetal_executable(PhotoViewer
                 "sdio.cpp"
                 "singleton.hpp"
                 "transmitter.hpp"
-                "transmitter.cpp")
+                "transmitter.cpp"
+                "viewer.hpp"
+                "viewer.cpp")
 
 target_compile_definitions(PhotoViewer PUBLIC STM32F412xG)
 
@@ -69,7 +70,7 @@ target_compile_features(PhotoViewer PUBLIC cxx_std_17)
 target_compile_options(PhotoViewer PRIVATE
         ${BASIC_COMPILE_OPTIONS}
         $<$<CONFIG:Debug>:-O0 -g3>
-        $<$<CONFIG:Release>:-O3 -flto>)
+        $<$<CONFIG:Release>:-Ofast -flto>)
 
 target_link_options(PhotoViewer PRIVATE
         -T ${LINKER_SCRIPT}
