@@ -1,7 +1,8 @@
 #pragma once
-#include "bmp.hpp"
 #include "lcd.hpp"
-#include "singleton.hpp"
+
+#include <filesystem/bmp.hpp>
+#include <tools/singleton.hpp>
 
 #include <cstdint>
 

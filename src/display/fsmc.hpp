@@ -1,13 +1,13 @@
 #pragma once
-#include "meta.hpp"
-#include "singleton.hpp"
+#include <tools/meta.hpp>
+#include <tools/singleton.hpp>
+
+#include <stm32f4xx.h>
 
 #include <cstddef>
 #include <cstdint>
 #include <type_traits>
 #include <utility>
-
-#include <stm32f4xx.h>
 
 namespace fsmc {
 namespace details {

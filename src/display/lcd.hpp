@@ -1,6 +1,7 @@
 #pragma once
 #include "fsmc.hpp"
-#include "singleton.hpp"
+
+#include <tools/singleton.hpp>
 
 #include <array>
 #include <cstddef>

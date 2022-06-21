@@ -1,8 +1,8 @@
 #pragma once
-#include "bmp.hpp"
-#include "display.hpp"
-#include "file.hpp"
-#include "lcd.hpp"
+#include <filesystem/bmp.hpp>
+#include <filesystem/file.hpp>
+#include <display/display.hpp>
+
 #include "receiver.hpp"
 #include "transmitter.hpp"
 
