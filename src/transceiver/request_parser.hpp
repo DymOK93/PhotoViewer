@@ -1,8 +1,9 @@
 #pragma once
-#include "circular.hpp"
 #include "command.hpp"
 #include "io.hpp"
 #include "receiver.hpp"
+
+#include <storage/circular.hpp>
 
 #include <cstddef>
 #include <cstdint>

@@ -1,12 +1,14 @@
 #pragma once
-#include "bmp.hpp"
-#include "circular.hpp"
 #include "command.hpp"
-#include "event.hpp"
-#include "gpio.hpp"
 #include "io.hpp"
-#include "lcd.hpp"
-#include "singleton.hpp"
+
+#include <display/lcd.hpp>
+#include <filesystem/bmp.hpp>
+#include <platform/event.hpp>
+#include <platform/gpio.hpp>
+#include <storage/circular.hpp>
+
+#include <tools/singleton.hpp>
 
 #include <array>
 #include <cstddef>

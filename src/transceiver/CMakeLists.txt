@@ -3,14 +3,12 @@ add_library(transceiver STATIC)
 target_sources(transceiver
         PUBLIC
             "command.hpp"
-            "event.hpp"
             "io.hpp"
             "receiver.hpp"
             "request_parser.hpp"
             "transmitter.hpp"
         PRIVATE
             "command.cpp"
-            "event.cpp"
             "receiver.cpp"
             "transmitter.cpp")
 
@@ -33,7 +31,11 @@ target_include_directories(transceiver
             ${PHOTO_VIEWER_SOURCE_DIR})
 
 target_link_libraries(transceiver PUBLIC
-        
-        stm32::f412zg)
+        display
+        filesystem
+        platform
+        stm32::f412zg
+        storage
+        tools)
 
 

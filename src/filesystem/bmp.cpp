@@ -1,5 +1,6 @@
 #include "bmp.hpp"
-#include "break_on.hpp"
+
+#include <tools/break_on.hpp>
 
 #include <array>
 #include <climits>

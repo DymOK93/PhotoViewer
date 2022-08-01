@@ -23,6 +23,6 @@ target_compile_options(stm32_f412zg PRIVATE
 target_link_options(stm32_f412zg PRIVATE
         ${BASIC_LINK_OPTIONS})
 
-target_include_directories(stm32_f412zg PUBLIC
+target_include_directories(stm32_f412zg SYSTEM PUBLIC
 		"${CMAKE_CURRENT_SOURCE_DIR}/include")
 

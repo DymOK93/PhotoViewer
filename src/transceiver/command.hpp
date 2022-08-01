@@ -1,7 +1,8 @@
 #pragma once
-#include "circular.hpp"
 #include "io.hpp"
-#include "singleton.hpp"
+
+#include <storage/circular.hpp>
+#include <tools/singleton.hpp>
 
 #include <cstdint>
 #include <functional>
@@ -39,7 +40,7 @@ struct Command : io::Serializable<Command> {
   Command() = default;
   Command(Type t) noexcept : type{t} {}
 
-  Type type;
+  Type type{Type::Empty};
 };
 
 constexpr bool operator==(Command lhs, Command rhs) {

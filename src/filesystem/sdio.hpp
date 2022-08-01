@@ -1,6 +1,6 @@
 #pragma once
-#include "meta.hpp"
-#include "singleton.hpp"
+#include <tools/meta.hpp>
+#include <tools/singleton.hpp>
 
 #include <cstdint>
 #include <optional>

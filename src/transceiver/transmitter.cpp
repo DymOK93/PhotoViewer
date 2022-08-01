@@ -1,5 +1,6 @@
 #include "transmitter.hpp"
-#include "attributes.hpp"
+
+#include <tools/attributes.hpp>
 
 using namespace std;
 

@@ -1,7 +1,8 @@
 #include "sdio.hpp"
-#include "break_on.hpp"
-#include "event.hpp"
-#include "gpio.hpp"
+
+#include <platform/event.hpp>
+#include <platform/gpio.hpp>
+#include <tools/break_on.hpp>
 
 #include <cassert>
 #include <cstring>
@@ -28,7 +29,7 @@ Card::Card() noexcept {
   setup_detection();
 }
 
-void Card::SetIAcceptor(IAcceptor* acceptor) {
+void Card::SetIAcceptor(IAcceptor* acceptor) noexcept {
   m_acceptor = acceptor;
 }
 
@@ -119,9 +120,9 @@ TransferStatus Card::Read(lba_t lba,
   return status;
 }
 
-TransferStatus Card::Write(lba_t lba,
-                           const std::byte* buffer,
-                           size_t block_count) const noexcept {
+TransferStatus Card::Write([[maybe_unused]] lba_t lba,
+                           [[maybe_unused]] const std::byte* buffer,
+                           [[maybe_unused]] size_t block_count) const noexcept {
   if (!Ready()) {
     return TransferStatus::NotReady;
   }

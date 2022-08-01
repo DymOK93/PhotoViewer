@@ -2,6 +2,9 @@ set(PHOTO_VIEWER_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
 add_subdirectory(display)
 add_subdirectory(filesystem)
+add_subdirectory(platform)
+add_subdirectory(storage)
+add_subdirectory(tools)
 add_subdirectory(transceiver)
 
 add_baremetal_executable(PhotoViewer 
@@ -28,8 +31,13 @@ target_link_options(PhotoViewer PRIVATE
 target_include_directories(PhotoViewer PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 target_link_libraries(PhotoViewer PRIVATE
+        display
         filesystem
         fs::fat
-        stm32::f412zg)
+        platform
+        stm32::f412zg
+        storage
+        tools
+        transceiver)
 
 

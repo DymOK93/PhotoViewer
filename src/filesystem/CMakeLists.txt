@@ -23,10 +23,17 @@ target_compile_options(filesystem PRIVATE
 
 target_link_options(filesystem PUBLIC ${BASIC_LINK_OPTIONS})
 
-target_include_directories(filesystem PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(filesystem 
+        PUBLIC 
+            ${CMAKE_CURRENT_SOURCE_DIR}
+        PRIVATE
+            ${PHOTO_VIEWER_SOURCE_DIR})
+
 
 target_link_libraries(filesystem PUBLIC
         fs::fat
-        stm32::f412zg)
+        platform
+        stm32::f412zg
+        tools)
 
 

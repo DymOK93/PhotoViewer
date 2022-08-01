@@ -1,9 +1,10 @@
 #include "viewer.hpp"
-#include "break_on.hpp"
-#include "command.hpp"
-#include "display.hpp"
-#include "request_parser.hpp"
-#include "transmitter.hpp"
+
+#include <display/display.hpp>
+#include <tools/break_on.hpp>
+#include <transceiver/command.hpp>
+#include <transceiver/request_parser.hpp>
+#include <transceiver/transmitter.hpp>
 
 #include <array>
 #include <cstring>

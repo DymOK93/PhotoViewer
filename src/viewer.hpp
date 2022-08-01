@@ -1,10 +1,9 @@
 #pragma once
+#include <display/display.hpp>
 #include <filesystem/bmp.hpp>
 #include <filesystem/file.hpp>
-#include <display/display.hpp>
-
-#include "receiver.hpp"
-#include "transmitter.hpp"
+#include <transceiver/receiver.hpp>
+#include <transceiver/transmitter.hpp>
 
 #include <array>
 #include <cstdio>

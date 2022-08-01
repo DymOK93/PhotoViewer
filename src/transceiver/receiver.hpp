@@ -1,5 +1,5 @@
 #pragma once
-#include "singleton.hpp"
+#include <tools/singleton.hpp>
 
 #include <cstddef>
 #include <cstdint>
@@ -34,7 +34,7 @@ class Receiver : public pv::Singleton<Receiver> {
   void set_transceiver_state(bool on) noexcept;
 
   static USART_TypeDef* setup_transceiver(std::uint16_t mantissa,
-                                          std::uint16_t fraction);
+                                          std::uint16_t fraction) noexcept;
 
  private:
   USART_TypeDef* m_transceiver;

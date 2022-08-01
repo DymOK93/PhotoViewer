@@ -1,8 +1,9 @@
 #include "command.hpp"
-#include "attributes.hpp"
-#include "event.hpp"
-#include "gpio.hpp"
 #include "transmitter.hpp"
+
+#include <platform/event.hpp>
+#include <platform/gpio.hpp>
+#include <tools/attributes.hpp>
 
 #include <algorithm>
 

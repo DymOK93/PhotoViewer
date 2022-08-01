@@ -1,5 +1,6 @@
 #include "lcd.hpp"
-#include "gpio.hpp"
+
+#include <platform/gpio.hpp>
 
 #include <cstring>
 

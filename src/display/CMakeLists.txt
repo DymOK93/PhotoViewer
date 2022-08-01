@@ -30,6 +30,8 @@ target_include_directories(display
 
 target_link_libraries(display PUBLIC
         filesystem
-        stm32::f412zg)
+        platform
+        stm32::f412zg
+        tools)
 
 

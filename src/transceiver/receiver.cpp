@@ -1,6 +1,7 @@
 #include "receiver.hpp"
-#include "attributes.hpp"
-#include "gpio.hpp"
+
+#include <platform/gpio.hpp>
+#include <tools/attributes.hpp>
 
 #include <cassert>
 
