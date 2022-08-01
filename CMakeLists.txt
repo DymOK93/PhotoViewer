@@ -36,7 +36,6 @@ set(BUILD_TYPE_SPECIFIC_COMPILE_OPTIONS
 
 set(BASIC_LINK_OPTIONS
         ${ARCHITECTURE_SPECIFIC_OPTIONS}
-        -nostartfiles
         -specs=nano.specs
         -lc -lm -lnosys)
 

@@ -4,7 +4,6 @@ target_sources(stm32_f412zg
         PUBLIC
             "${CMAKE_CURRENT_SOURCE_DIR}/include"
         PRIVATE
-            "src/init.c"
             "src/startup_stm32f412zx.c"
             "src/system_stm32f4xx.c")
 
